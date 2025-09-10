@@ -54,12 +54,31 @@ export default defineEventHandler(async (event) => {
 
     // Step 1: Create new Nuxt app
     console.log("Creating a new Nuxt application...");
+    
+    // Ensure /tmp directory exists and is writable
+    if (!fs.existsSync("/tmp")) {
+      fs.mkdirSync("/tmp", { recursive: true });
+    }
+    
+    // Check if /tmp is writable
+    try {
+      fs.accessSync("/tmp", fs.constants.W_OK);
+    } catch {
+      throw new Error("/tmp directory is not writable");
+    }
+    
     safeExecSync(`npx nuxi@latest init ${projectName}`, { cwd: "/tmp" });
     console.log("Nuxt application created successfully.");
 
     // Verify project directory exists
     if (!fs.existsSync(projectDir)) {
       throw new Error(`Project directory was not created: ${projectDir}`);
+    }
+    
+    // Verify the directory is actually a directory and readable
+    const stats = fs.statSync(projectDir);
+    if (!stats.isDirectory()) {
+      throw new Error(`Project path exists but is not a directory: ${projectDir}`);
     }
 
     // Step 2: Add selected modules
@@ -80,6 +99,8 @@ export default defineEventHandler(async (event) => {
     } catch {
       if (process.env.GITHUB_EMAIL) {
         safeExecSync(`git config --global user.email "${process.env.GITHUB_EMAIL}"`, { cwd: projectDir });
+      } else {
+        safeExecSync(`git config --global user.email "noreply@github.com"`, { cwd: projectDir });
       }
     }
     
@@ -88,6 +109,8 @@ export default defineEventHandler(async (event) => {
     } catch {
       if (process.env.GITHUB_NAME) {
         safeExecSync(`git config --global user.name "${process.env.GITHUB_NAME}"`, { cwd: projectDir });
+      } else {
+        safeExecSync(`git config --global user.name "${GITHUB_USERNAME}"`, { cwd: projectDir });
       }
     }
 
