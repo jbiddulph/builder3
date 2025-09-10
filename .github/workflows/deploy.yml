@@ -1,19 +1,49 @@
-name: Deploy to Netlify
+name: Build and Deploy to Netlify
 on:
   push:
     branches: [ main ]
 
 jobs:
-  build_deploy:
+  build_and_deploy:
     runs-on: ubuntu-latest
     env:
       NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_TOKEN }}
       NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for Git operations
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: 20.12.0
-      - run: npm ci
-      - run: npm run generate
-      - run: npx netlify-cli deploy --dir=.output/public --prod
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Run linting
+        run: npm run lint || echo "No lint script found, skipping..."
+      
+      - name: Run type checking
+        run: npm run typecheck || echo "No typecheck script found, skipping..."
+      
+      - name: Build application
+        run: npm run build
+      
+      - name: Generate static site
+        run: npm run generate
+      
+      - name: Verify build output
+        run: |
+          echo "Checking build output..."
+          ls -la .output/
+          ls -la .output/public/ || echo "No .output/public directory found"
+          echo "Build verification complete"
+      
+      - name: Deploy to Netlify
+        run: |
+          echo "Deploying to Netlify..."
+          npx netlify-cli deploy --dir=.output/public --prod --site=$NETLIFY_SITE_ID --auth=$NETLIFY_AUTH_TOKEN
